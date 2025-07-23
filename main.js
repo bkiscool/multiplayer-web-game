@@ -12,6 +12,7 @@ let gameHeight;
 let gameScale;
 
 const screenObjects = new Array();
+const players = new Array();
 
 const isKeyDown = new Map();
 
@@ -208,6 +209,8 @@ class Player extends ScreenObject {
         this.playername = playername;
 
         this.draw();
+
+        players.push(this);
     }
 
     draw()
@@ -265,6 +268,64 @@ async function update()
     window.requestAnimationFrame(update);
 }
 
+async function serverNewPlayer(playername)
+{
+    const payload = {
+        playername: `${playername}`
+    };
+
+    console.log("Payload stringify: " + JSON.stringify(payload));
+
+    const reponse = await fetch("/api/player-join", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+    })
+    .then(reponse => reponse.json())
+    .then(json => {
+        const data = JSON.stringify(json);
+        console.log("Reponse: " + data);
+    });
+
+}
+
+async function checkForNewPlayer()
+{
+    const payload = {
+        playername: `${player.playername}`
+    };
+
+    //console.log("Payload stringify: " + JSON.stringify(payload));
+
+    const reponse = await fetch("/api/player-join", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+    })
+    .then(reponse => reponse.json())
+    .then(json => {
+        const data = JSON.stringify(json);
+        console.log("Players from server: " + data);
+
+        for (otherPlayer in json.players)
+        {
+            if (players.includes(otherPlayer)) continue;
+
+            new Player(otherPlayer);
+        }
+
+    });
+
+    await new Promise(r => setTimeout(r, 1000));
+
+    window.requestAnimationFrame(checkForNewPlayer);
+
+}
+
 function startGame()
 {
     let playername = document.getElementById("playername-input").value;
@@ -277,6 +338,8 @@ function startGame()
 
     console.log("Playername: " + playername);
 
+    serverNewPlayer(playername);
+
     setGameScale();
     document.body.innerHTML = "<canvas id='canvas' width='" + gameWidth + "' height='" + gameHeight + "' style='background:#000000; position:absolute; padding:0; margin:auto; display:block; top:0; left:0; bottom:0; right:0;'></canvas>";
 
@@ -286,4 +349,5 @@ function startGame()
     player = new Player(playername);
 
     update();
+    checkForNewPlayer();
 }
