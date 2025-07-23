@@ -3,114 +3,170 @@ let context;
 
 let player;
 
-let screenWidth = window.screen.width;
-let screenHeight = window.screen.height;
+let screenWidth;
+let screenHeight;
+let windowWidth;
+let windowHeight;
+let gameWidth;
+let gameHeight;
+let gameScale;
 
-let windowWidth = window.innerWidth;
-let windowHeight = window.innerHeight;
-let gameScale = Math.min(windowWidth, windowHeight) * 0.01;
+const screenObjects = new Array();
 
-let screenObjects = new Array();
+const isKeyDown = new Map();
+
+let click_x;
+let click_y;
 
 function setGameScale()
 {
     screenWidth = window.screen.width;
     screenHeight = window.screen.height;
-
     windowWidth = window.innerWidth;
     windowHeight = window.innerHeight;
-    gameScale = Math.min(windowWidth, windowHeight) * 0.01;
+    gameWidth = Math.floor(Math.min(windowWidth * 0.90, 1920));
+    gameHeight = Math.floor(Math.min(windowHeight * 0.90, 1080));
+    gameScale = Math.min(gameWidth, gameHeight) * 0.01;
 
-    console.log("");
-    console.log("Window was resized.");
-    console.log("Here are the new values ->");
+    //console.log("");
+    //console.log("Window was resized.");
+    //console.log("Here are the new values ->");
 
-    console.log("Screen width: " + screenWidth);
-    console.log("Screen height: " + screenHeight);
-    console.log("");
-    console.log("Window width: " + windowWidth);
-    console.log("Window height: " + windowHeight);
-    console.log("Game scale: " + gameScale);
+    //console.log("Screen width: " + screenWidth);
+    //console.log("Screen height: " + screenHeight);
+    //console.log("");
+    //console.log("Window width: " + windowWidth);
+    //console.log("Window height: " + windowHeight);
+    //console.log("Game scale: " + gameScale);
 
     if (canvas == null) return;
 
-    canvas.width = screenWidth;
-    canvas.height = screenHeight;
+    canvas.width = gameWidth;
+    canvas.height = gameHeight;
 
 }
 
 window.onresize = setGameScale;
 
-document.addEventListener("keydown", (event) => {
-    let key = event.key.toString().toLowerCase();
-    console.log("");
-    console.log("Keypress: " + key);
+function viewportToGameCoordinates(x, y)
+{
+    const gameCoordinates = new Map();
 
-    if (player == null)
+    gameCoordinates.set("x", Math.floor(x - (windowWidth - gameWidth) / 2));
+    gameCoordinates.set("y", Math.floor(y - (windowHeight - gameHeight) / 2));
+
+    return gameCoordinates;
+}
+
+function onClick()
+{
+    if (player == undefined) return;
+    if (isKeyDown.get("up")) return;
+    if (isKeyDown.get("down")) return;
+    if (isKeyDown.get("left")) return;
+    if (isKeyDown.get("right")) return;
+
+    //console.log("");
+    //console.log("Moving player to (" + click_x + ", " + click_y + ")");
+    //console.log("Player coordinates: (" + player.x + ", " + player.y + ")");
+
+    if (player.x - click_x > 0)
     {
-
-        return;
+        player.x -= 1;
+    } else if (player.x - click_x < 0)
+    {
+        player.x += 1;
     }
 
+    if (player.y - click_y > 0)
+    {
+        player.y -= 1;
+    } else if (player.y - click_y < 0)
+    {
+        player.y += 1;
+    }
+
+    if (player.x == click_x && player.y == click_y) return;
+
+    window.requestAnimationFrame(onClick);
+}
+
+addEventListener("click", (event) => {
+    const coords = viewportToGameCoordinates(event.x, event.y);
+
+    click_x = coords.get("x");
+    click_y = coords.get("y");
+
+    //console.log("");
+    //console.log("Moving player to (" + click_x + ", " + click_y + ")");
+
+    onClick();
+});
+
+document.addEventListener("keydown", (event) => {
+    let key = event.key.toString().toLowerCase();
+    //console.log("Keydown: " + key);
 
     if (key === "w" || key === "arrowup") // UP
     {
-        //console.log("UP pressed");
-        player.y -= 1;
+        isKeyDown.set("up", true);
 
+    }
 
-
-    } else if (key === "s" || key === "arrowdown") // DOWN
+    if (key === "s" || key === "arrowdown") // DOWN
     {
-        //console.log("DOWN pressed");
-        player.y += 1;
+       isKeyDown.set("down", true);
 
-
-
-    } else if (key === "a" || key === "arrowleft") // LEFT
+    }
+    
+    if (key === "a" || key === "arrowleft") // LEFT
     {
-        //console.log("LEFT pressed");
-        player.x -= 1;
+        isKeyDown.set("left", true);
 
-
-
-
-    } else if (key === "d" || key === "arrowright") // RIGHT
+    }
+    
+    if (key === "d" || key === "arrowright") // RIGHT
     {
-        //console.log("RIGHT pressed");
-        player.x += 1;
-
-
+        isKeyDown.set("right", true);
 
     }
 
 });
 
-async function update()
-{
-    if (screenObjects.length == 0) return;
+document.addEventListener("keyup", (event) => {
+    let key = event.key.toString().toLowerCase();
+    //console.log("Keyup: " + key);
 
-    context.clearRect(0, 0, canvas.width, canvas.height);
-
-    context.beginPath();
-    context.rect(0, 0, 100000, 100000);
-    context.fillStyle = "black";
-    context.fill();
-    context.closePath();
-
-    for (object of screenObjects)
+    if (key === "w" || key === "arrowup") // UP
     {
-        object.draw();
+        isKeyDown.set("up", false);
+
     }
 
-    await new Promise(r => setTimeout(r, 20));
-    window.requestAnimationFrame(update);
-}
+    if (key === "s" || key === "arrowdown") // DOWN
+    {
+       isKeyDown.set("down", false);
+
+    }
+    
+    if (key === "a" || key === "arrowleft") // LEFT
+    {
+        isKeyDown.set("left", false);
+
+    }
+    
+    if (key === "d" || key === "arrowright") // RIGHT
+    {
+        isKeyDown.set("right", false);
+
+    }
+
+});
 
 class ScreenObject {
     constructor(img_src, x, y)
     {
-        console.log("ScreenObject constructor ran!");
+        //console.log("ScreenObject constructor ran!");
 
         this.img_src = img_src;
         this.x = x;
@@ -118,8 +174,8 @@ class ScreenObject {
         this.img = new Image();
         this.img.src = this.img_src;
         this.img.onload = () => {
-            let aspect_ratio = img.width / img.height;
-            context.drawImage(img, this.x, this.y, aspect_ratio * gameScale * 10, (1 / aspect_ratio) * gameScale * 10);
+            let aspect_ratio = this.img.width / this.img.height;
+            context.drawImage(this.img, this.x, this.y, aspect_ratio * gameScale * 10, (1 / aspect_ratio) * gameScale * 10);
         };
 
         screenObjects.push(this);
@@ -154,13 +210,59 @@ class Player extends ScreenObject {
         this.draw();
     }
 
-    move(x_rel, y_rel) {
-        this.object.move(x_rel, y_rel);
+    draw()
+    {
+        //console.log("Player draw method ran!");
 
-        console.log("");
-        console.log("Player coordinates: (" + this.object.x + ", " + this.object.y + ")");
+        if (isKeyDown.get("up"))
+        {
+            this.y -= 1;
+        }
+
+        if (isKeyDown.get("down"))
+        {
+            this.y += 1;
+        }
+
+        if (isKeyDown.get("left"))
+        {
+            this.x -= 1;
+        }
+
+        if (isKeyDown.get("right"))
+        {
+            this.x += 1;
+        }
+
+        const aspect_ratio = this.img.width / this.img.height;
+        const width = aspect_ratio * gameScale * 10;
+        const height = (1 / aspect_ratio) * gameScale * 10;
+        
+        context.drawImage(this.img, this.x, this.y, width, height);
+
+        context.fillStyle = "white";
+        context.textAlign = "center";
+        context.font = "15px arial";
+        context.fillText(this.playername, this.x + width / 2, Math.floor(this.y - width * 0.05), width);
+
     }
 
+}
+
+async function update()
+{
+    if (screenObjects.length == 0) return;
+
+    context.clearRect(0, 0, canvas.width, canvas.height);
+
+    for (object of screenObjects)
+    {
+        object.draw();
+    }
+
+    await new Promise(r => setTimeout(r, 20));
+
+    window.requestAnimationFrame(update);
 }
 
 function startGame()
@@ -175,20 +277,13 @@ function startGame()
 
     console.log("Playername: " + playername);
 
-    document.body.innerHTML = "<canvas id='canvas' width='" + screenWidth + "' height='" + screenHeight + "'></canvas>";
+    setGameScale();
+    document.body.innerHTML = "<canvas id='canvas' width='" + gameWidth + "' height='" + gameHeight + "' style='background:#000000; position:absolute; padding:0; margin:auto; display:block; top:0; left:0; bottom:0; right:0;'></canvas>";
 
     canvas = document.getElementById("canvas");
     context = canvas.getContext("2d");
-
-
-    context.beginPath();
-    context.rect(0, 0, 100000, 100000);
-    context.fillStyle = "black";
-    context.fill();
-    context.closePath();
 
     player = new Player(playername);
 
     update();
 }
-
