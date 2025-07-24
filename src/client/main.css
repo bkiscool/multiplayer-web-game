@@ -1,3 +1,24 @@
+@font-face {
+    font-family: "Gwibble";
+    src: url(./assets/gwibble.ttf) format(truetype);
+    font-weight: normal;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: "Kranky";
+    src: url(./assets/kranky.ttf) format(truetype);
+    font-weight: normal;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: "SignLanguage";
+    src: url(./assets/sign-language.ttf) format(truetype);
+    font-weight: normal;
+    font-style: normal;
+}
+
 body {
     background-color: black;
     background-image: url("./assets/background.jpg");
@@ -7,4 +28,41 @@ body {
 
 .main {
     text-align: center;
+    background-color: rgba(0, 0, 0, 0.500);
+
+}
+
+.main p {
+    font-family: "Kranky", Arial, Helvetica, sans-serif;
+    font-size: 1.5em;
+    color: rgb(255, 254, 220);
+}
+
+.main h1 {
+    font-family: "Gwibble", Arial, Helvetica, sans-serif;
+    font-size: 3em;
+    font-weight: lighter;
+    color: rgb(192, 178, 255);
+}
+
+.error {
+    background-color: rgba(0, 0, 0, 0.500);
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-start;
+    align-items: center;
+}
+
+#error {
+    font-family: "SignLanguage", Arial, Helvetica, sans-serif;
+    font-size: 3em;
+    font-weight: bold;
+    color: rgb(255, 69, 69);
+    padding: 0.25em;
+}
+
+#error-message {
+    font-family: "Kranky", Arial, Helvetica, sans-serif;
+    font-size: 1.25em;
+    color: rgb(255, 254, 220);
 }

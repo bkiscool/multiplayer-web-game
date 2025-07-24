@@ -1,6 +1,11 @@
 const express = require('express');
 const { STATUS_CODES } = require('node:http');
 var path = require('node:path');
+const { RegExpMatcher, TextCensor, englishDataset, englishRecommendedTransformers } = require('obscenity');
+const profanity_filter = new RegExpMatcher({
+	...englishDataset.build(),
+	...englishRecommendedTransformers,
+});
 const app = express()
 const port = 3000
 
@@ -117,6 +122,25 @@ app.get('/api/connected-players', (req, res) => {
     const response = {
         players: alive_players
     };
+
+    res.json(response);
+});
+
+app.post('/api/profanity-check', (req, res) => {
+    const request = req.body;
+    const playername = request.playername;
+    let response = new Object();
+
+    if(profanity_filter.hasMatch(playername))
+    {
+        response = {
+            hasProfanity: true
+        };
+    } else {
+        response = {
+            hasProfanity: false
+        };
+    }
 
     res.json(response);
 });

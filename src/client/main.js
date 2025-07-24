@@ -245,7 +245,7 @@ class Player extends ScreenObject {
 
         context.fillStyle = "white";
         context.textAlign = "center";
-        context.font = "15px arial";
+        context.font = "bold 15px Kranky";
         context.fillText(this.playername, this.x + width / 2, Math.floor(this.y - width * 0.05), width);
 
     }
@@ -300,7 +300,7 @@ async function playerUpdate()
 
     //console.log("Payload stringify: " + JSON.stringify(payload));
 
-    const reponse = await fetch("/api/player-update", {
+    const response = await fetch("/api/player-update", {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
@@ -308,23 +308,23 @@ async function playerUpdate()
         },
         body: JSON.stringify(payload)
     })
-    .then(reponse => reponse.json())
+    .then(response => response.json())
     .then(json => {
         const data = JSON.stringify(json);
-        //console.log("Reponse: " + data);
+        //console.log("response: " + data);
     });
 
 }
 
 async function getUpdatedPlayers()
 {
-    const reponse = await fetch("/api/updated-players", {
+    const response = await fetch("/api/updated-players", {
         method: "GET",
         headers: {
             "Accept": "application/json"
         }
     })
-    .then(reponse => reponse.json())
+    .then(response => response.json())
     .then(json => {
         const data = JSON.stringify(json);
         //console.log("Response: " + data);
@@ -353,7 +353,7 @@ async function keepalive()
 
     //console.log("Payload stringify: " + JSON.stringify(payload));
 
-    const reponse = await fetch("/api/keepalive", {
+    const response = await fetch("/api/keepalive", {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
@@ -362,10 +362,10 @@ async function keepalive()
         },
         body: JSON.stringify(payload)
     })
-    .then(reponse => reponse.json())
+    .then(response => response.json())
     .then(json => {
         const data = JSON.stringify(json);
-        //console.log("Reponse: " + data);
+        //console.log("response: " + data);
     });
 
     await new Promise(r => setTimeout(r, 1000));
@@ -375,13 +375,13 @@ async function keepalive()
 
 async function getConnectedPlayers()
 {
-    const reponse = await fetch("/api/connected-players", {
+    const response = await fetch("/api/connected-players", {
         method: "GET",
         headers: {
             "Accept": "application/json"
         }
     })
-    .then(reponse => reponse.json())
+    .then(response => response.json())
     .then(json => {
         const data = JSON.stringify(json);
         //console.log("Response: " + data);
@@ -416,15 +416,77 @@ async function getConnectedPlayers()
 
 }
 
-function startGame()
+async function checkPlayername(playername)
 {
-    let playername = document.getElementById("playername-input").value;
-
     if (playername == "")
     {
         let randNum = Math.floor(Math.random() * 999999 - 100000) + 1000000;
         playername = "player" + randNum.toString();
+
+        return playername;
     }
+
+    if (playername.length > 13)
+    {
+        document.getElementById("error").innerHTML = "Error:";
+        document.getElementById("error-message").innerHTML = `[${new Date().toLocaleTimeString()}] Playername cannot be longer than 13 characters.`
+        return;
+    }
+
+    if (playername.length < 2)
+    {
+        document.getElementById("error").innerHTML = "Error:";
+        document.getElementById("error-message").innerHTML = `[${new Date().toLocaleTimeString()}] Playername must be at least 2 characters long.`
+        return;
+    }
+
+    const specialCharactersMatch = playername.match(/\W/);
+    if (specialCharactersMatch != null)
+    {
+        document.getElementById("error").innerHTML = "Error:";
+        document.getElementById("error-message").innerHTML = `[${new Date().toLocaleTimeString()}] Playername can only contain letters, numbers, and underscores.`
+        return;
+    }
+
+    const letterMatch = playername.match(/[a-zA-Z0-9]/);
+    if (letterMatch == null)
+    {
+        document.getElementById("error").innerHTML = "Error:";
+        document.getElementById("error-message").innerHTML = `[${new Date().toLocaleTimeString()}] Playername must contain at least 1 letter or number.`
+        return;
+    }
+
+    const payload = {
+        playername: playername
+    };
+
+    const response = await fetch("/api/profanity-check", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+        },
+        body: JSON.stringify(payload)
+    });
+    const data = await response.json();
+    const hasProfanity = data.hasProfanity;
+
+    if (hasProfanity)
+    {
+        document.getElementById("error").innerHTML = "Error:";
+        document.getElementById("error-message").innerHTML = `[${new Date().toLocaleTimeString()}] Playername cannot contain profanity.`
+        return;
+    }
+
+    return playername;
+}
+
+async function startGame()
+{
+    let playername = document.getElementById("playername-input").value;
+    playername = await checkPlayername(playername);
+
+    if (playername == undefined) return;
 
     console.log("Playername: " + playername);
 

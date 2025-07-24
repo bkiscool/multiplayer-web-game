@@ -18,6 +18,7 @@
   },
   "homepage": "https://github.com/bkiscool/multiplayer-web-game#readme",
   "dependencies": {
-    "express": "^5.1.0"
+    "express": "^5.1.0",
+    "obscenity": "^0.4.4"
   }
 }
