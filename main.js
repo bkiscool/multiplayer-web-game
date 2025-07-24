@@ -12,7 +12,7 @@ let gameHeight;
 let gameScale;
 
 const screenObjects = new Array();
-const players = new Array();
+const players = new Map(); // playername -> Player
 
 const isKeyDown = new Map();
 
@@ -204,13 +204,13 @@ class ScreenObject {
 }
 
 class Player extends ScreenObject {
-    constructor(playername) {
-        super("./favicon.ico", 0, 0);
+    constructor(playername, x, y) {
+        super("./favicon.ico", x, y);
         this.playername = playername;
 
         this.draw();
 
-        players.push(this);
+        players.set(this.playername, this);
     }
 
     draw()
@@ -250,6 +250,29 @@ class Player extends ScreenObject {
 
     }
 
+    toJson()
+    {
+        const json = {
+            playername: this.playername,
+            x: this.x,
+            y: this.y
+        };
+
+        return json;
+    }
+
+    delete()
+    {
+        try {
+            screenObjects.splice(screenObjects.indexOf(this), 1);
+            players.delete(this.playername);
+            console.log("Removed player due to timeout: " + this.playername);
+        } catch (error) {
+            console.error("Error while trying to remove timedout player: ", error.message);
+        }
+
+    }
+
 }
 
 async function update()
@@ -257,6 +280,9 @@ async function update()
     if (screenObjects.length == 0) return;
 
     context.clearRect(0, 0, canvas.width, canvas.height);
+
+    playerUpdate();
+    getUpdatedPlayers();
 
     for (object of screenObjects)
     {
@@ -268,61 +294,125 @@ async function update()
     window.requestAnimationFrame(update);
 }
 
-async function serverNewPlayer(playername)
+async function playerUpdate()
 {
-    const payload = {
-        playername: `${playername}`
-    };
+    const payload = player.toJson();
 
-    console.log("Payload stringify: " + JSON.stringify(payload));
+    //console.log("Payload stringify: " + JSON.stringify(payload));
 
-    const reponse = await fetch("/api/player-join", {
+    const reponse = await fetch("/api/player-update", {
         method: "POST",
         headers: {
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
+            "Accept": "application/json"
         },
         body: JSON.stringify(payload)
     })
     .then(reponse => reponse.json())
     .then(json => {
         const data = JSON.stringify(json);
-        console.log("Reponse: " + data);
+        //console.log("Reponse: " + data);
     });
 
 }
 
-async function checkForNewPlayer()
+async function getUpdatedPlayers()
 {
-    const payload = {
-        playername: `${player.playername}`
-    };
+    const reponse = await fetch("/api/updated-players", {
+        method: "GET",
+        headers: {
+            "Accept": "application/json"
+        }
+    })
+    .then(reponse => reponse.json())
+    .then(json => {
+        const data = JSON.stringify(json);
+        //console.log("Response: " + data);
+
+        const server_players = json.players;
+        //console.log("Server players: " + JSON.stringify(server_players));
+
+        for (otherPlayer of server_players)
+        {
+            if (!players.has(otherPlayer.playername)) continue;
+            if (otherPlayer.playername == player.playername) continue;
+
+            const playerObject = players.get(otherPlayer.playername);
+            playerObject.x = otherPlayer.x;
+            playerObject.y = otherPlayer.y;
+        }
+
+    });
+
+}
+
+async function keepalive()
+{
+    const payload = player.toJson();
+    const timestamp = new Date().getTime();
 
     //console.log("Payload stringify: " + JSON.stringify(payload));
 
-    const reponse = await fetch("/api/player-join", {
+    const reponse = await fetch("/api/keepalive", {
         method: "POST",
         headers: {
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "Timestamp": `${timestamp}`
         },
         body: JSON.stringify(payload)
     })
     .then(reponse => reponse.json())
     .then(json => {
         const data = JSON.stringify(json);
-        console.log("Players from server: " + data);
+        //console.log("Reponse: " + data);
+    });
 
-        for (otherPlayer in json.players)
-        {
-            if (players.includes(otherPlayer)) continue;
+    await new Promise(r => setTimeout(r, 1000));
 
-            new Player(otherPlayer);
+    window.requestAnimationFrame(keepalive);
+}
+
+async function getConnectedPlayers()
+{
+    const reponse = await fetch("/api/connected-players", {
+        method: "GET",
+        headers: {
+            "Accept": "application/json"
         }
+    })
+    .then(reponse => reponse.json())
+    .then(json => {
+        const data = JSON.stringify(json);
+        //console.log("Response: " + data);
+
+        const server_players = json.players;
+        const connectedPlayers = server_players.map(otherPlayer => otherPlayer.playername);
+        //console.log("Server players: " + JSON.stringify(server_players));
+
+        for (otherPlayer of server_players)
+        {
+            if (players.has(otherPlayer.playername)) continue;
+
+            //console.log("New player from server: " + otherPlayer.playername);
+            new Player(otherPlayer.playername, otherPlayer.x, otherPlayer.y);
+        }
+
+        const timedout = new Array();
+        players.keys().forEach(playername => {
+            if (connectedPlayers.includes(playername)) return;
+            if (playername == player.playername) return;
+
+            timedout.push(playername);
+        });
+
+        timedout.forEach(playername => players.get(playername).delete());
 
     });
 
     await new Promise(r => setTimeout(r, 1000));
 
-    window.requestAnimationFrame(checkForNewPlayer);
+    window.requestAnimationFrame(getConnectedPlayers);
 
 }
 
@@ -338,16 +428,16 @@ function startGame()
 
     console.log("Playername: " + playername);
 
-    serverNewPlayer(playername);
-
     setGameScale();
     document.body.innerHTML = "<canvas id='canvas' width='" + gameWidth + "' height='" + gameHeight + "' style='background:#000000; position:absolute; padding:0; margin:auto; display:block; top:0; left:0; bottom:0; right:0;'></canvas>";
 
     canvas = document.getElementById("canvas");
     context = canvas.getContext("2d");
 
-    player = new Player(playername);
+    player = new Player(playername, 200, 200);
 
     update();
-    checkForNewPlayer();
+    playerUpdate();
+    getConnectedPlayers();
+    keepalive();
 }
