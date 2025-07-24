@@ -2,7 +2,7 @@
 
 echo Running app on http://localhost:3000/
 
-node server.js
+npm start 
 
 echo Done. Press enter to exit...
 

@@ -205,7 +205,7 @@ class ScreenObject {
 
 class Player extends ScreenObject {
     constructor(playername, x, y) {
-        super("./favicon.ico", x, y);
+        super("./assets/favicon.ico", x, y);
         this.playername = playername;
 
         this.draw();

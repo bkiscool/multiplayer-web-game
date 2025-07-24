@@ -1,6 +1,10 @@
 body {
     background-color: black;
-    background-image: url("./background.jpg");
+    background-image: url("./assets/background.jpg");
     background-size: 10%;
     background-repeat: repeat;
+}
+
+.main {
+    text-align: center;
 }

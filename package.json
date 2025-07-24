@@ -2,10 +2,10 @@
   "name": "multiplayer-web-game",
   "version": "1.0.0",
   "description": "The plan is for this project to be a template for multiplayer web games",
-  "main": "main.js",
+  "main": "./src/client/main.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node server.js"
+    "start": "node ./src/server/server.js"
   },
   "repository": {
     "type": "git",
