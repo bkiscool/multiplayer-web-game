@@ -3,13 +3,17 @@ let context;
 
 let player;
 
+const UNIT_MAX_WIDTH = 1920;
+const UNIT_MAX_HEIGHT = 1080;
+
 let screenWidth;
 let screenHeight;
 let windowWidth;
 let windowHeight;
 let gameWidth;
 let gameHeight;
-let gameScale;
+let canvas_scale_x; // The ratio of canvas pixels to game pixels (will always be >= 1)
+let canvas_scale_y;
 
 const screenObjects = new Array();
 const players = new Map(); // playername -> Player
@@ -25,9 +29,18 @@ function setGameScale()
     screenHeight = window.screen.height;
     windowWidth = window.innerWidth;
     windowHeight = window.innerHeight;
-    gameWidth = Math.floor(Math.min(windowWidth * 0.90, 1920));
-    gameHeight = Math.floor(Math.min(windowHeight * 0.90, 1080));
-    gameScale = Math.min(gameWidth, gameHeight) * 0.01;
+
+    gameHeight = Math.min(windowHeight * 0.90, UNIT_MAX_HEIGHT);
+    gameWidth = Math.min(windowWidth * 0.90, UNIT_MAX_WIDTH);
+    if (gameWidth > gameHeight)
+    {
+        gameWidth = Math.min(gameHeight * 16 / 9, gameWidth);
+    }
+    gameHeight = Math.floor(gameWidth * 9 / 16);
+    gameWidth = Math.floor(gameWidth);
+
+    canvas_scale_x = UNIT_MAX_WIDTH / gameWidth;
+    canvas_scale_y = UNIT_MAX_HEIGHT / gameHeight;
 
     //console.log("");
     //console.log("Window was resized.");
@@ -45,18 +58,47 @@ function setGameScale()
     canvas.width = gameWidth;
     canvas.height = gameHeight;
 
+    
+    //context.scale(1, 1);
+    context.scale(1 / canvas_scale_x, 1 / canvas_scale_y);
+    
+    //console.log("");
+    //console.log(`Canvas scale: (${canvas_scale_x}, ${canvas_scale_y})`);
+    //console.log("Canvas width: " + canvas.width);
+    //console.log("Canvas height: " + canvas.height);
+    
 }
 
 window.onresize = setGameScale;
 
-function viewportToGameCoordinates(x, y)
+function gametoCanvasCoordinates(x, y)
 {
-    const gameCoordinates = new Map();
+    const coordinates = new Map();
 
-    gameCoordinates.set("x", Math.floor(x - (windowWidth - gameWidth) / 2));
-    gameCoordinates.set("y", Math.floor(y - (windowHeight - gameHeight) / 2));
+    coordinates.set("x", x / canvas_scale_x);
+    coordinates.set("y", y / canvas_scale_y);
 
-    return gameCoordinates;
+    return coordinates;
+}
+
+function canvasToGameCoordinates(x, y)
+{
+    const coordinates = new Map();
+
+    coordinates.set("x", Math.floor(x * canvas_scale_x));
+    coordinates.set("y", Math.floor(y * canvas_scale_y));
+
+    return coordinates;
+}
+
+function viewportToCanvasCoordinates(x, y)
+{
+    const coordinates = new Map();
+
+    coordinates.set("x", x - (windowWidth - gameWidth) / 2);
+    coordinates.set("y", y - (windowHeight - gameHeight) / 2);
+
+    return coordinates;
 }
 
 function onClick()
@@ -93,10 +135,13 @@ function onClick()
 }
 
 addEventListener("click", (event) => {
-    const coords = viewportToGameCoordinates(event.x, event.y);
+    const canvas_coords = viewportToCanvasCoordinates(event.x, event.y);
+    const game_coords = canvasToGameCoordinates(canvas_coords.get("x"), canvas_coords.get("y"));
+    const bounded_coords = checkInBound(game_coords.get("x"), game_coords.get("y"));
+    
 
-    click_x = coords.get("x");
-    click_y = coords.get("y");
+    click_x = bounded_coords.x;
+    click_y = bounded_coords.y;
 
     //console.log("");
     //console.log("Moving player to (" + click_x + ", " + click_y + ")");
@@ -164,20 +209,57 @@ document.addEventListener("keyup", (event) => {
 
 });
 
+function checkInBound(x, y)
+    {
+        let inBounds = true;
+        let bounded_coords;
+
+        if (x + player.img.width / 2 > UNIT_MAX_WIDTH)
+        {
+            x = Math.ceil(UNIT_MAX_WIDTH - player.img.width / 2);
+            inBounds = false;
+        } else if (x - player.img.width / 2 < 0)
+        {
+            x = 0 + Math.floor(player.img.width / 2);
+            inBounds = false;
+        }
+
+        if (y > UNIT_MAX_HEIGHT)
+        {
+            y = UNIT_MAX_HEIGHT;
+            inBounds = false;
+        } else if (y - player.img.height < 0)
+        {
+            y = 0 + player.img.height;
+            inBounds = false;
+        }
+
+        bounded_coords = {
+            x: x,
+            y: y
+        };
+
+        return bounded_coords;
+    }
+
 class ScreenObject {
-    constructor(img_src, x, y)
+    constructor(img_src, w, h, x, y)
     {
         //console.log("ScreenObject constructor ran!");
 
         this.img_src = img_src;
         this.x = x;
         this.y = y;
-        this.img = new Image();
+        this.img = new Image(w, h);
         this.img.src = this.img_src;
+
+        this.img.onload = () => {};
+        /*
         this.img.onload = () => {
             let aspect_ratio = this.img.width / this.img.height;
             context.drawImage(this.img, this.x, this.y, aspect_ratio * gameScale * 10, (1 / aspect_ratio) * gameScale * 10);
         };
+        */
 
         screenObjects.push(this);
     }
@@ -196,7 +278,7 @@ class ScreenObject {
         */
 
         let aspect_ratio = this.img.width / this.img.height;
-        context.drawImage(this.img, this.x, this.y, aspect_ratio * gameScale * 10, (1 / aspect_ratio) * gameScale * 10);
+        context.drawImage(this.img, this.x, this.y, aspect_ratio * gameScale * 10, gameScale / aspect_ratio * 10);
 
         //img.src = this.img_src;
     }
@@ -205,7 +287,7 @@ class ScreenObject {
 
 class Player extends ScreenObject {
     constructor(playername, x, y) {
-        super("./assets/favicon.ico", x, y);
+        super("./assets/favicon.ico", 75, 75, x, y);
         this.playername = playername;
 
         this.draw();
@@ -217,36 +299,50 @@ class Player extends ScreenObject {
     {
         //console.log("Player draw method ran!");
 
-        if (isKeyDown.get("up"))
+        if (isKeyDown.values().some(bool => bool))
         {
-            this.y -= 1;
+            if (isKeyDown.get("up"))
+            {
+                this.y -= 1;
+            }
+
+            if (isKeyDown.get("down"))
+            {
+                this.y += 1;
+            }
+
+            if (isKeyDown.get("left"))
+            {
+                this.x -= 1;
+            }
+
+            if (isKeyDown.get("right"))
+            {
+                this.x += 1;
+            }
+
+            const bounded_coords = checkInBound(this.x, this.y);
+            this.x = bounded_coords.x;
+            this.y = bounded_coords.y;
+
         }
 
-        if (isKeyDown.get("down"))
-        {
-            this.y += 1;
-        }
-
-        if (isKeyDown.get("left"))
-        {
-            this.x -= 1;
-        }
-
-        if (isKeyDown.get("right"))
-        {
-            this.x += 1;
-        }
-
-        const aspect_ratio = this.img.width / this.img.height;
-        const width = aspect_ratio * gameScale * 10;
-        const height = (1 / aspect_ratio) * gameScale * 10;
         
-        context.drawImage(this.img, this.x, this.y, width, height);
+
+        /*
+        const aspect_ratio = this.img.width / this.img.height;
+        const width = aspect_ratio * 75;
+        const height = 75 / aspect_ratio;
+        */
+        const width = 75;
+        const height = 75;
+        
+        context.drawImage(this.img, this.x - width / 2, this.y - height, width, height);
 
         context.fillStyle = "white";
         context.textAlign = "center";
-        context.font = "bold 15px Kranky";
-        context.fillText(this.playername, this.x + width / 2, Math.floor(this.y - width * 0.05), width);
+        context.font = "16px Kranky";
+        context.fillText(this.playername, this.x, this.y - height - 7, width + 20);
 
     }
 
@@ -275,28 +371,13 @@ class Player extends ScreenObject {
 
 }
 
-async function update()
-{
-    if (screenObjects.length == 0) return;
-
-    context.clearRect(0, 0, canvas.width, canvas.height);
-
-    playerUpdate();
-    getUpdatedPlayers();
-
-    for (object of screenObjects)
-    {
-        object.draw();
-    }
-
-    await new Promise(r => setTimeout(r, 20));
-
-    window.requestAnimationFrame(update);
-}
-
 async function playerUpdate()
 {
-    const payload = player.toJson();
+    const payload = {
+        playername: player.playername,
+        x: player.x,
+        y: player.y
+    };
 
     //console.log("Payload stringify: " + JSON.stringify(payload));
 
@@ -389,6 +470,7 @@ async function getConnectedPlayers()
         const server_players = json.players;
         const connectedPlayers = server_players.map(otherPlayer => otherPlayer.playername);
         //console.log("Server players: " + JSON.stringify(server_players));
+        //console.log("Server playernames: " + connectedPlayers.toString());
 
         for (otherPlayer of server_players)
         {
@@ -414,6 +496,25 @@ async function getConnectedPlayers()
 
     window.requestAnimationFrame(getConnectedPlayers);
 
+}
+
+async function update()
+{
+    if (screenObjects.length == 0) return;
+
+    context.clearRect(0, 0, UNIT_MAX_WIDTH, UNIT_MAX_HEIGHT);
+
+    playerUpdate();
+    getUpdatedPlayers();
+
+    for (object of screenObjects)
+    {
+        object.draw();
+    }
+
+    await new Promise(r => setTimeout(r, 20));
+
+    window.requestAnimationFrame(update);
 }
 
 async function checkPlayername(playername)
@@ -490,11 +591,12 @@ async function startGame()
 
     console.log("Playername: " + playername);
 
-    setGameScale();
-    document.body.innerHTML = "<canvas id='canvas' width='" + gameWidth + "' height='" + gameHeight + "' style='background:#000000; position:absolute; padding:0; margin:auto; display:block; top:0; left:0; bottom:0; right:0;'></canvas>";
+    document.body.innerHTML = `<canvas id='canvas' width='${UNIT_MAX_WIDTH}' height='${UNIT_MAX_HEIGHT}' style='background:#000000; position:absolute; padding:0; margin:auto; display:block; top:0; left:0; bottom:0; right:0;'></canvas>`;
 
     canvas = document.getElementById("canvas");
     context = canvas.getContext("2d");
+
+    setGameScale();
 
     player = new Player(playername, 200, 200);
 
