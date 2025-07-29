@@ -44,7 +44,7 @@ app.post('/api/player-update', (req, res) => {
     res.json(response);
 });
 
-app.get('/api/updated-players', (req, res) => {
+app.get('/api/players', (req, res) => {
 
     const updated_players = new Array();
     players.forEach((data, playername) => {
